@@ -32,3 +32,19 @@ class DataEntrySource(StrEnum):
 
 class TargetSystem(StrEnum):
     smda = "smda"
+
+
+class ChangeType(StrEnum):
+    """The types of change that can be made on a file."""
+
+    update = "update"
+    remove = "remove"
+    add = "add"
+    reset = "reset"
+
+
+class FileName(StrEnum):
+    """The files in the .fmu directory."""
+
+    config = "config.json"
+    changelog = "changelog.json"

@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Self, TypeAlias, cast
 
+from fmu.settings._resources.changelog_manager import ChangelogManager
+
 from ._logging import null_logger
 from ._readme_texts import PROJECT_README_CONTENT, USER_README_CONTENT
 from ._resources.cache_manager import CacheManager
@@ -26,6 +28,7 @@ class FMUDirectoryBase:
     _lock: LockManager
     _cache_manager: CacheManager
     _README_CONTENT: str = ""
+    _changelog: ChangelogManager
 
     def __init__(
         self: Self,
@@ -51,6 +54,7 @@ class FMUDirectoryBase:
         logger.debug(f"Initializing FMUDirectory from '{base_path}'")
         self._lock = LockManager(self, timeout_seconds=lock_timeout_seconds)
         self._cache_manager = CacheManager(self, max_revisions=cache_revisions)
+        self._changelog = ChangelogManager(self)
 
         fmu_dir = self.base_path / ".fmu"
         if fmu_dir.exists():
