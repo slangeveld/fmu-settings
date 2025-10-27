@@ -1,6 +1,7 @@
 """Tests for ChangelogManager."""
 
 import copy
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,7 +10,8 @@ import pytest
 from fmu.settings._fmu_dir import ProjectFMUDirectory
 from fmu.settings._resources.changelog_manager import ChangelogManager
 from fmu.settings.models._enums import ChangeType, FileName
-from fmu.settings.models.changelog import ChangeInfo, Changelog
+from fmu.settings.models.change_info import ChangeInfo
+from fmu.settings.models.log import Log
 
 
 @pytest.fixture
@@ -38,7 +40,7 @@ def test_changelog_manager_instantiation(fmu_dir: ProjectFMUDirectory) -> None:
     ):
         changelog.load()
 
-    assert changelog.model_class == Changelog
+    assert changelog.model_class == Log[ChangeInfo]
 
 
 def test_changelog_manager_add_entry(
@@ -59,14 +61,14 @@ def test_changelog_manager_add_entry(
 
     assert changelog_resource.exists is True
     changelog = changelog_resource.load()
-    assert changelog.log[0] == change_entry
+    assert changelog.root[0] == change_entry
 
     changelog_resource.add_log_entry(change_entry)
     changelog_resource.add_log_entry(change_entry)
     expected_log_entries = 3
 
-    changelog = changelog_resource.load()
-    assert len(changelog.log) == expected_log_entries
+    updated_changelog: Log[ChangeInfo] = changelog_resource.load()
+    assert len(updated_changelog.root) == expected_log_entries
 
 
 def test_changelog_manager_add_invalid_entry(
@@ -81,16 +83,16 @@ def test_changelog_manager_add_invalid_entry(
     assert changelog_resource.exists
 
     change_entry_with_issues = copy.deepcopy(change_entry)
-    change_entry_with_issues.change_type = "invalid change_type"  # type: ignore
+    del change_entry_with_issues.change_type
 
     with pytest.raises(
         ValueError, match="Invalid log entry added to 'ChangelogManager'"
     ):
         changelog_resource.add_log_entry(change_entry_with_issues)
 
-    changelog: Changelog = changelog_resource.load()
-    assert len(changelog.log) == 1
-    assert changelog.log[0] == change_entry
+    changelog: Log[ChangeInfo] = changelog_resource.load()
+    assert len(changelog.root) == 1
+    assert changelog.root[0] == change_entry
 
 
 def test_changelog_manager_add_invalid_entry_no_file_created(
@@ -106,9 +108,11 @@ def test_changelog_manager_add_invalid_entry_no_file_created(
     change_entry_with_issues = copy.deepcopy(change_entry)
     change_entry_with_issues.change_type = "invalid change_type"  # type: ignore
 
-    with pytest.raises(
-        ValueError, match="Invalid log entry added to 'ChangelogManager'"
-    ):
-        changelog.add_log_entry(change_entry_with_issues)
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError, match="Invalid log entry added to 'ChangelogManager'"
+        ):
+            changelog.add_log_entry(change_entry_with_issues)
 
     assert changelog.exists is False

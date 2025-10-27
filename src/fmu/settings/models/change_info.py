@@ -1,4 +1,4 @@
-"""Models related to the changelog log file."""
+"""Model for the log entries in the the changelog file."""
 
 from pathlib import Path
 
@@ -18,10 +18,3 @@ class ChangeInfo(BaseModel):
     hostname: str
     file: FileName
     key: str
-
-
-class Changelog(BaseModel):
-    """Represents a changelog file in a .fmu directory."""
-
-    log: list[ChangeInfo]
-    """List of change entries making up the changelog file."""

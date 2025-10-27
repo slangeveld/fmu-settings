@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Self
 
 from fmu.settings._resources.log_manager import LogManager
 from fmu.settings.models._enums import FileName
-from fmu.settings.models.changelog import Changelog
+from fmu.settings.models.change_info import ChangeInfo
+from fmu.settings.models.log import Log
 
 if TYPE_CHECKING:
     # Avoid circular dependency for type hint in __init__ only
@@ -14,12 +15,12 @@ if TYPE_CHECKING:
     )
 
 
-class ChangelogManager(LogManager[Changelog]):
+class ChangelogManager(LogManager):
     """Manages the .fmu changelog file."""
 
     def __init__(self: Self, fmu_dir: FMUDirectoryBase) -> None:
         """Initializes the Change log resource manager."""
-        super().__init__(fmu_dir, Changelog)
+        super().__init__(fmu_dir, Log[ChangeInfo])
 
     @property
     def relative_path(self: Self) -> Path:
