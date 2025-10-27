@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     )
 
 
-class ChangelogManager(LogManager):
+class ChangelogManager(LogManager[ChangeInfo]):
     """Manages the .fmu changelog file."""
 
     def __init__(self: Self, fmu_dir: FMUDirectoryBase) -> None:

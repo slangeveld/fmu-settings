@@ -1,8 +1,9 @@
 """Model for the log entries in the the changelog file."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import AwareDatetime, BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
 from fmu.settings.models._enums import ChangeType, FileName
 
@@ -10,8 +11,8 @@ from fmu.settings.models._enums import ChangeType, FileName
 class ChangeInfo(BaseModel):
     """Represents a change in the changelog file."""
 
+    timestamp: AwareDatetime = Field(default_factory=lambda: datetime.now(UTC))
     change_type: ChangeType
-    date: AwareDatetime
     user: str
     path: Path
     change: str

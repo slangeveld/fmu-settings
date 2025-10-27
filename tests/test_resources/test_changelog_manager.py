@@ -18,8 +18,8 @@ from fmu.settings.models.log import Log
 def change_entry() -> ChangeInfo:
     """Returns a valid ChangeInfo object."""
     return ChangeInfo(
+        timestamp=datetime.now(UTC),
         change_type=ChangeType.add,
-        date=datetime.now(UTC),
         user="test",
         path=Path("/test_folder"),
         file=FileName.config,
@@ -61,14 +61,14 @@ def test_changelog_manager_add_entry(
 
     assert changelog_resource.exists is True
     changelog = changelog_resource.load()
-    assert changelog.root[0] == change_entry
+    assert changelog[0] == change_entry
 
     changelog_resource.add_log_entry(change_entry)
     changelog_resource.add_log_entry(change_entry)
     expected_log_entries = 3
 
     updated_changelog: Log[ChangeInfo] = changelog_resource.load()
-    assert len(updated_changelog.root) == expected_log_entries
+    assert len(updated_changelog) == expected_log_entries
 
 
 def test_changelog_manager_add_invalid_entry(
@@ -91,8 +91,8 @@ def test_changelog_manager_add_invalid_entry(
         changelog_resource.add_log_entry(change_entry_with_issues)
 
     changelog: Log[ChangeInfo] = changelog_resource.load()
-    assert len(changelog.root) == 1
-    assert changelog.root[0] == change_entry
+    assert len(changelog) == 1
+    assert changelog[0] == change_entry
 
 
 def test_changelog_manager_add_invalid_entry_no_file_created(
