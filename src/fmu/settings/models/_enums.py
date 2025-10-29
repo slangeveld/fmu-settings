@@ -43,13 +43,6 @@ class ChangeType(StrEnum):
     reset = "reset"
 
 
-class FileName(StrEnum):
-    """The files in the .fmu directory."""
-
-    config = "config.json"
-    changelog = "changelog.json"
-
-
 class FilterType(StrEnum):
     """The supported types to filter on."""
 

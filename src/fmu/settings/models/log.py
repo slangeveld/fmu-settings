@@ -1,5 +1,6 @@
 """Module for the log file and related models."""
 
+from enum import StrEnum
 from typing import Any, Literal, Self, TypeVar
 
 from pydantic import BaseModel, Field, RootModel
@@ -36,3 +37,9 @@ class Filter(BaseModel):
     filter_value: str
     filter_type: Literal["str", "number", "datetime"]
     operator: Literal[">=", "<=", "==", "!="]
+
+
+class LogFileName(StrEnum):
+    """The log files in the .fmu directory."""
+
+    changelog = "changelog.json"

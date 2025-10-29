@@ -2,10 +2,11 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, Field
 
-from fmu.settings.models._enums import ChangeType, FileName
+from fmu.settings.models._enums import ChangeType
 
 
 class ChangeInfo(BaseModel):
@@ -17,5 +18,5 @@ class ChangeInfo(BaseModel):
     path: Path
     change: str
     hostname: str
-    file: FileName
+    file: Literal["config.json"]
     key: str

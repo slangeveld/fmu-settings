@@ -10,9 +10,9 @@ import pytest
 
 from fmu.settings._fmu_dir import ProjectFMUDirectory
 from fmu.settings._resources.changelog_manager import ChangelogManager
-from fmu.settings.models._enums import ChangeType, FileName
+from fmu.settings.models._enums import ChangeType
 from fmu.settings.models.change_info import ChangeInfo
-from fmu.settings.models.log import Filter, Log
+from fmu.settings.models.log import Filter, Log, LogFileName
 
 DATE_TIME_NOW = datetime.now(UTC)
 
@@ -25,7 +25,7 @@ def change_entry() -> ChangeInfo:
         change_type=ChangeType.add,
         user="test",
         path=Path("/test_folder"),
-        file=FileName.config,
+        file="config.json",
         change="Added new field to smda masterdata.",
         hostname="hostname",
         key="masterdata",
@@ -41,7 +41,7 @@ def change_entry_list() -> list[ChangeInfo]:
             change_type=ChangeType.add,
             user="user_first_entry",
             path=Path("/path_first_entry"),
-            file=FileName.config,
+            file="config.json",
             change="Added new field.",
             hostname="hostname_first_entry",
             key="masterdata",
@@ -51,7 +51,7 @@ def change_entry_list() -> list[ChangeInfo]:
             change_type=ChangeType.update,
             user="user_second_entry",
             path=Path("/path_second_entry"),
-            file=FileName.config,
+            file="config.json",
             change="Updated field.",
             hostname="hostname_second_entry",
             key="masterdata",
@@ -61,7 +61,7 @@ def change_entry_list() -> list[ChangeInfo]:
             change_type=ChangeType.remove,
             user="user_third_entry",
             path=Path("/path_third_entry"),
-            file=FileName.config,
+            file="config.json",
             change="Removed field.",
             hostname="hostname_third_entry",
             key="masterdata",
@@ -71,7 +71,7 @@ def change_entry_list() -> list[ChangeInfo]:
             change_type=ChangeType.reset,
             user="user_fourth_entry",
             path=Path("/path_fourth_entry"),
-            file=FileName.config,
+            file="config.json",
             change="Reset field.",
             hostname="hostname_fourth_entry",
             key="masterdata",
@@ -83,7 +83,7 @@ def test_changelog_manager_instantiation(fmu_dir: ProjectFMUDirectory) -> None:
     """Tests basic facts about the ChangelogManager."""
     changelog: ChangelogManager = ChangelogManager(fmu_dir)
     assert changelog.fmu_dir == fmu_dir
-    assert changelog.relative_path == Path("logs") / FileName.changelog
+    assert changelog.relative_path == Path("logs") / LogFileName.changelog
     assert changelog.exists is False
     with pytest.raises(
         FileNotFoundError, match="Resource file for 'ChangelogManager' not found"
