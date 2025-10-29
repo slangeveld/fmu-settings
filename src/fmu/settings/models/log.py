@@ -1,6 +1,6 @@
-"""Root model for the log file."""
+"""Module for the log file and related models."""
 
-from typing import Any, Self, TypeVar
+from typing import Any, Literal, Self, TypeVar
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -27,3 +27,12 @@ class Log(RootModel[list[LogEntryType]]):
     def __len__(self: Self) -> int:
         """Returns the number of log entries in the log."""
         return len(self.root)
+
+
+class Filter(BaseModel):
+    """Represents a filter that can be applied on a log file."""
+
+    field_name: str
+    filter_value: str
+    filter_type: Literal["str", "number", "datetime"]
+    operator: Literal[">=", "<=", "==", "!="]

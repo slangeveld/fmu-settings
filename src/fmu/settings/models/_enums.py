@@ -48,3 +48,11 @@ class FileName(StrEnum):
 
     config = "config.json"
     changelog = "changelog.json"
+
+
+class FilterType(StrEnum):
+    """The supported types to filter on."""
+
+    number = "number"
+    string = "string"
+    data = "date"

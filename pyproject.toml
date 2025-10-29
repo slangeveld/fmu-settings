@@ -29,15 +29,17 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "PyYAML",
-    "annotated_types",  # Dependency in Pydantic also
+    "annotated_types", # Dependency in Pydantic also
     "fmu-config",
     "fmu-datamodels",
+    "pandas",
     "pydantic",
 ]
 
 [project.optional-dependencies]
 dev = [
     "mypy",
+    "pandas-stubs",
     "pytest",
     "pytest-cov",
     "pytest-mock",
