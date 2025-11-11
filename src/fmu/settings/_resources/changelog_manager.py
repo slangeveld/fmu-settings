@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 class ChangelogManager(LogManager[ChangeInfo]):
     """Manages the .fmu changelog file."""
 
+    cache_enabled: bool = False
+
     def __init__(self: Self, fmu_dir: FMUDirectoryBase) -> None:
         """Initializes the Change log resource manager."""
         super().__init__(fmu_dir, Log[ChangeInfo])
