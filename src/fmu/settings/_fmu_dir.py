@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Self, TypeAlias, cast
 
 from fmu.settings._resources.changelog_manager import ChangelogManager
+from fmu.settings._resources.mappings_manager import MappingsManager
 
 from ._logging import null_logger
 from ._readme_texts import PROJECT_README_CONTENT, USER_README_CONTENT
@@ -29,6 +30,7 @@ class FMUDirectoryBase:
     _cache_manager: CacheManager
     _README_CONTENT: str = ""
     _changelog: ChangelogManager
+    _mappings: MappingsManager
 
     def __init__(
         self: Self,
@@ -55,6 +57,7 @@ class FMUDirectoryBase:
         self._lock = LockManager(self, timeout_seconds=lock_timeout_seconds)
         self._cache_manager = CacheManager(self, max_revisions=cache_revisions)
         self._changelog = ChangelogManager(self)
+        self._mappings = MappingsManager(self)
 
         fmu_dir = self.base_path / ".fmu"
         if fmu_dir.exists():
@@ -429,6 +432,16 @@ class ProjectFMUDirectory(FMUDirectoryBase):
                             new_fmu_dir, resource
                         )
                         changes = current_resource.get_resource_diff(new_resource)
+                    case "_mappings":
+                        current_mappings: MappingsManager = getattr(self, resource)
+                        new_mappings: MappingsManager = getattr(new_fmu_dir, resource)
+                        changes = [
+                            (
+                                "mappings",
+                                None,
+                                current_mappings.get_mappings_diff(new_mappings),
+                            )
+                        ]
                     case "_changelog":
                         current_changelog: ChangelogManager = getattr(self, resource)
                         new_changelog: ChangelogManager = getattr(new_fmu_dir, resource)
@@ -439,7 +452,6 @@ class ProjectFMUDirectory(FMUDirectoryBase):
                             changes = [("changelog", None, changelog_diff)]
                         else:
                             changes = []
-
                     case _:
                         continue
             except AttributeError:
@@ -454,24 +466,37 @@ class ProjectFMUDirectory(FMUDirectoryBase):
         """Sync the resources in two .fmu directories.
 
         Compare all resources in the two .fmu directories and merge all changes
-        in the new .fmu directory into the current .fmu directory.
+        in the new .fmu directory into the current .fmu directory. Resources that are
+        not present in both .fmu directories will not be synced.
 
-        Resources that are not present in both .fmu directories will not be synced.
+        The changelog resource will be merged first to preserve the order of the log
+        entries, as merging of the other resources may add new entries to the changelog.
+
+        The sync is concluded by logging the sync details to the changelog.
         """
         changes_in_dir = self.get_dir_diff(new_fmu_dir)
         updates: dict[str, Any] = {}
+
+        if "_changelog" in changes_in_dir and len(changes_in_dir["_changelog"]) > 0:
+            current_changelog: ChangelogManager = self._changelog
+            updated_changelog = current_changelog.merge_changes(
+                changes_in_dir["_changelog"][0][2].root
+            )
+            updates["_changelog"] = updated_changelog
+            changes_in_dir.pop("_changelog")
+
         for resource, changes in changes_in_dir.items():
             if len(changes) == 0:
                 continue
 
             updated_resource: Any
             if resource == "config":
-                current_config: ProjectConfigManager = getattr(self, resource)
+                current_config: ProjectConfigManager = self.config
                 updated_resource = current_config.merge_changes(changes)
                 self._sync_runtime_variables()
-            elif resource == "_changelog":
-                current_changelog: ChangelogManager = getattr(self, resource)
-                updated_resource = current_changelog.merge_changes(changes[0][2].root)
+            elif resource == "_mappings":
+                current_mapping: MappingsManager = self._mappings
+                updated_resource = current_mapping.merge_changes(changes[0][2])
 
             updates[resource] = updated_resource
 

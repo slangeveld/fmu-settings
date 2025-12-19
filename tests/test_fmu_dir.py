@@ -1,5 +1,6 @@
 """Tests for the ProjectFMUDirectory class."""
 
+import copy
 import inspect
 import json
 import shutil
@@ -8,6 +9,12 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from fmu.datamodels.context.mappings import (
+    DataSystem,
+    RelationType,
+    StratigraphyIdentifierMapping,
+    StratigraphyMappings,
+)
 from fmu.datamodels.fmu_results.fields import Masterdata
 from pytest import MonkeyPatch
 
@@ -22,6 +29,7 @@ from fmu.settings._resources.lock_manager import DEFAULT_LOCK_TIMEOUT, LockManag
 from fmu.settings.models._enums import ChangeType
 from fmu.settings.models.change_info import ChangeInfo
 from fmu.settings.models.log import Log
+from fmu.settings.models.mappings import Mappings
 
 
 def test_init_existing_directory(fmu_dir: ProjectFMUDirectory) -> None:
@@ -898,50 +906,75 @@ def test_fmu_directory_base_sync_dir_with_changelog(
     assert updated_changelog[2].path == fmu_dir.path
 
 
-def test_fmu_directory_base_sync_dir_with_config_and_changelog(
+def test_fmu_directory_base_sync_dir_with_all_resources(
     fmu_dir: ProjectFMUDirectory,
     masterdata_dict: dict[str, Any],
     extra_fmu_dir: ProjectFMUDirectory,
 ) -> None:
-    """Tests syncing with another .fmu directory with both config and changelog."""
+    """Tests syncing with another .fmu directory with config, mappings and changelog."""
     assert fmu_dir.config.load().masterdata is None
     fmu_dir.set_config_value("masterdata", masterdata_dict)
     assert fmu_dir.config.load().masterdata is not None
     assert len(fmu_dir._changelog.load()) == 1
     assert fmu_dir._changelog.load()[0].change_type == ChangeType.update
 
+    fmu_dir._mappings.update_stratigraphy_mappings(StratigraphyMappings(root=[]))
     new_fmu_dir = extra_fmu_dir
-    new_log_entry = ChangeInfo(
-        change_type=ChangeType.add,
-        user="test",
-        path=Path("/some_path"),
-        change="test change",
-        hostname="host",
-        file="config",
-        key="synced_entry",
+    new_strat_mapping = StratigraphyIdentifierMapping(
+        source_system=DataSystem.rms,
+        target_system=DataSystem.smda,
+        relation_type=RelationType.primary,
+        source_id="TopViking",
+        target_id="VIKING GP. Top",
     )
-    new_fmu_dir._changelog.add_log_entry(new_log_entry)
+    new_fmu_dir._mappings.update_stratigraphy_mappings(
+        StratigraphyMappings(root=[new_strat_mapping])
+    )
+
     assert len(new_fmu_dir._changelog.load()) == 1
-    assert new_fmu_dir._changelog.load()[0] == new_log_entry
+    assert new_fmu_dir._changelog.load()[0].key == "stratigraphy"
+    assert new_fmu_dir._changelog.load()[0].file == "mappings.json"
 
     updated_resources = fmu_dir.sync_dir(new_fmu_dir)
 
-    expected_no_of_resources = 2
+    expected_no_of_resources = 3
     assert len(updated_resources) == expected_no_of_resources
     assert "config" in updated_resources
     assert fmu_dir.config.load().masterdata is None
 
+    assert "_mappings" in updated_resources
+    assert fmu_dir._mappings.well_mappings is None
+    assert fmu_dir._mappings.stratigraphy_mappings is not None
+    assert len(fmu_dir._mappings.stratigraphy_mappings) == 1
+    assert fmu_dir._mappings.stratigraphy_mappings[0] == new_strat_mapping
+
     assert "_changelog" in updated_resources
     updated_changelog: Log[ChangeInfo] = updated_resources["_changelog"]
-    expected_log_length = 4
+    expected_log_length = 6
+
+    # Assert existing entries
     assert len(updated_changelog) == expected_log_length
     assert updated_changelog[0].key == "masterdata"
-    assert updated_changelog[1].key == "masterdata"
-    assert updated_changelog[2].key == "synced_entry"
-    assert updated_changelog[2] == new_log_entry
-    assert updated_changelog[3].change_type == ChangeType.merge
-    assert "config" in updated_changelog[3].file
-    assert "_changelog" in updated_changelog[3].file
+    assert updated_changelog[0].path == fmu_dir.path
+    assert updated_changelog[1].key == "stratigraphy"
+    assert updated_changelog[1].path == fmu_dir.path
+
+    # Assert merged entry
+    assert updated_changelog[2].key == "stratigraphy"
+    assert updated_changelog[2].path == new_fmu_dir.path
+    assert updated_changelog[2] == new_fmu_dir._changelog.load()[0]
+
+    # Assert entries from merging config and mappings
+    assert updated_changelog[3].key == "masterdata"
+    assert updated_changelog[3].path == fmu_dir.path
+    assert updated_changelog[4].key == "stratigraphy"
+    assert updated_changelog[4].path == fmu_dir.path
+
+    # Assert log entry with merge details
+    assert updated_changelog[5].change_type == ChangeType.merge
+    assert "config" in updated_changelog[5].file
+    assert "_changelog" in updated_changelog[5].file
+    assert "_mappings" in updated_changelog[5].file
 
 
 def test_fmu_directory_base_sync_dir_dont_sync_ignored_fields(
@@ -982,15 +1015,15 @@ def test_fmu_directory_base_sync_dir_dont_sync_ignored_fields(
     assert updates["_changelog"][0].key == "cache_max_revisions"
     assert "Old value: 5 -> New value: 5" in updates["_changelog"][0].change
 
-    # Second entry should be the cache_max_revision update from the config merge
+    # Second entry should be the cache_max_revision update from the changelog merge
     assert updates["_changelog"][1].key == "cache_max_revisions"
     assert "Old value: 5 -> New value: 10" in updates["_changelog"][1].change
-    assert updates["_changelog"][1].path == fmu_dir.path
+    assert updates["_changelog"][1].path == new_fmu_dir.path
 
-    # Third entry should be the cache_max_revision update from the changelog merge
+    # Third entry should be the cache_max_revision update from the config merge
     assert updates["_changelog"][2].key == "cache_max_revisions"
     assert "Old value: 5 -> New value: 10" in updates["_changelog"][2].change
-    assert updates["_changelog"][2].path == new_fmu_dir.path
+    assert updates["_changelog"][2].path == fmu_dir.path
 
     # Fourth entry should be the logged merge details
     assert updates["_changelog"][3].key == ".fmu"
@@ -1009,3 +1042,113 @@ def test_fmu_directory_base_sync_dir_dont_sync_ignored_fields(
     # The changelog entry for the update will be merged
     assert updates["_changelog"][4].key == "created_by"
     assert "Old value: user -> New value: johndoe" in updates["_changelog"][4].change
+
+
+def test_fmu_directory_base_get_dir_diff_with_mappings(
+    fmu_dir: ProjectFMUDirectory,
+    extra_fmu_dir: ProjectFMUDirectory,
+) -> None:
+    """Tests getting the diff with another .fmu directory with mappings."""
+    strat_mapping = StratigraphyIdentifierMapping(
+        source_system=DataSystem.rms,
+        target_system=DataSystem.smda,
+        relation_type=RelationType.primary,
+        source_id="TopViking",
+        target_id="VIKING GP. Top",
+    )
+    fmu_dir._mappings.update_stratigraphy_mappings(
+        StratigraphyMappings(root=[strat_mapping])
+    )
+
+    new_fmu_dir = extra_fmu_dir
+    new_strat_mapping = copy.deepcopy(strat_mapping)
+    new_strat_mapping.source_id = "TopVolantis"
+    new_strat_mapping.target_id = "VOLANTIS GP. Top"
+    new_fmu_dir._mappings.update_stratigraphy_mappings(
+        StratigraphyMappings(root=[new_strat_mapping])
+    )
+
+    old_fmu_dir = copy.deepcopy(fmu_dir)
+    dir_diff = fmu_dir.get_dir_diff(new_fmu_dir)
+
+    # Assert no changes made to the .fmu directory
+    assert fmu_dir.config.load() == old_fmu_dir.config.load()
+    assert fmu_dir._changelog.load() == old_fmu_dir._changelog.load()
+    assert fmu_dir._mappings.load() == old_fmu_dir._mappings.load()
+
+    # Assert mappings diff is as expected
+    assert "_mappings" in dir_diff
+    assert len(dir_diff["_mappings"]) == 1
+    mappings_diff = dir_diff["_mappings"][0]
+    assert mappings_diff[0] == "mappings"
+    assert mappings_diff[1] is None
+    assert isinstance(mappings_diff[2], Mappings)
+    assert mappings_diff[2].wells is None
+    assert mappings_diff[2].stratigraphy is not None
+    assert len(mappings_diff[2].stratigraphy) == 1
+    assert mappings_diff[2].stratigraphy[0] == new_strat_mapping
+
+    # Assert no config changes
+    assert "config" in dir_diff
+    assert len(dir_diff["config"]) == 0
+
+    # Assert changelog diff has only the mappings update entry
+    assert len(dir_diff["_changelog"]) == 1
+    changelog_diff = dir_diff["_changelog"][0]
+    assert changelog_diff[0] == "changelog"
+    assert changelog_diff[1] is None
+    assert len(changelog_diff[2]) == 1
+    assert changelog_diff[2][0].key == "stratigraphy"
+    assert changelog_diff[2][0].file == "mappings.json"
+
+
+def test_fmu_directory_base_sync_dir_with_mappings(
+    fmu_dir: ProjectFMUDirectory,
+    extra_fmu_dir: ProjectFMUDirectory,
+) -> None:
+    """Tests syncing mappings resource with another .fmu directory."""
+    strat_mapping = StratigraphyIdentifierMapping(
+        source_system=DataSystem.rms,
+        target_system=DataSystem.smda,
+        relation_type=RelationType.primary,
+        source_id="TopViking",
+        target_id="VIKING GP. Top",
+    )
+    fmu_dir._mappings.update_stratigraphy_mappings(
+        StratigraphyMappings(root=[strat_mapping])
+    )
+
+    new_fmu_dir = extra_fmu_dir
+    new_strat_mapping = copy.deepcopy(strat_mapping)
+    new_strat_mapping.source_id = "TopVolantis"
+    new_strat_mapping.target_id = "VOLANTIS GP. Top"
+    new_fmu_dir._mappings.update_stratigraphy_mappings(
+        StratigraphyMappings(root=[new_strat_mapping])
+    )
+
+    updates = fmu_dir.sync_dir(new_fmu_dir)
+
+    # Assert mappings are updated as expected
+    assert "_mappings" in updates
+    assert updates["_mappings"] == fmu_dir._mappings.load()
+    assert fmu_dir._mappings.well_mappings is None
+    assert fmu_dir._mappings.stratigraphy_mappings is not None
+    assert len(fmu_dir._mappings.stratigraphy_mappings) == 1
+    assert fmu_dir._mappings.stratigraphy_mappings[0] == new_strat_mapping
+
+    # Assert no config changes
+    assert "config" not in updates
+
+    # Assert changelog has all the mapping updates plus the merge entry
+    changelog: Log[ChangeInfo] = updates["_changelog"]
+    expected_log_length = 4
+    assert len(changelog) == expected_log_length
+    assert changelog[0].path == fmu_dir.path
+    assert changelog[0].key == "stratigraphy"
+    assert changelog[1].path == new_fmu_dir.path
+    assert changelog[1].key == "stratigraphy"
+    assert changelog[2].path == fmu_dir.path
+    assert changelog[2].key == "stratigraphy"
+    assert changelog[3].path == fmu_dir.path
+    assert changelog[3].change_type == ChangeType.merge
+    assert "mappings" in changelog[3].file

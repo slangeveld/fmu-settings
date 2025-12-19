@@ -144,8 +144,7 @@ class ChangelogManager(LogManager[ChangeInfo]):
         log entries in the current changelog are added.
         """
         new_log_entries = self.get_changelog_diff(incoming_changelog)
-        self.merge_changes(new_log_entries.root)
-        return self.load()
+        return self.merge_changes(new_log_entries.root)
 
     def merge_changes(self: Self, change: list[ChangeInfo]) -> Log[ChangeInfo]:
         """Merge a list of changes into the current changelog.
