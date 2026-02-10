@@ -42,6 +42,7 @@ class ChangeType(StrEnum):
     add = "add"
     reset = "reset"
     merge = "merge"
+    copy = "copy"
 
 
 class FilterType(StrEnum):

@@ -959,3 +959,22 @@ def test_changelog_log_merge_to_changelog_merge_details(
         f"'{incoming_path}' into '{source_path}'."
     )
     assert merge_entry.change == expected_change_string
+
+
+def test_changelog_log_copy_revision_to_changelog(
+    fmu_dir: ProjectFMUDirectory,
+) -> None:
+    """Tests that the revision copy details logged to the changelog is as expected."""
+    changelog_resource: ChangelogManager = ChangelogManager(fmu_dir)
+    source_path = Path("path/to/master/project/revision")
+
+    changelog_resource.log_copy_revision_to_changelog(source_path=source_path)
+
+    changelog = changelog_resource.load()
+    assert len(changelog) == 1
+    copy_entry = changelog[0]
+    assert copy_entry.change_type == ChangeType.copy
+    assert copy_entry.path == source_path
+    assert copy_entry.change == f"Copied project revision from {source_path}."
+    assert copy_entry.file == "N/A"
+    assert copy_entry.key == "project"

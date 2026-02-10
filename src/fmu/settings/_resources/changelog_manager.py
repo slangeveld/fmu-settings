@@ -107,6 +107,24 @@ class ChangelogManager(LogManager[ChangeInfo]):
             )
         )
 
+    def log_copy_revision_to_changelog(
+        self: Self,
+        source_path: Path
+    ) -> None:
+        """Logs a change entry with revision copy details to the changelog."""
+        self.add_log_entry(
+            ChangeInfo(
+                timestamp=datetime.now(UTC),
+                change_type=ChangeType.copy,
+                user=os.getenv("USER", "unknown"),
+                path=source_path,
+                change=f"Copied project revision from {source_path}.",
+                hostname=socket.gethostname(),
+                file="N/A",
+                key="project_revision",
+            )
+        )
+
     def _get_latest_change_timestamp(self: Self) -> datetime:
         """Get the timestamp of the latest change entry in the changelog."""
         return self.load()[-1].timestamp
